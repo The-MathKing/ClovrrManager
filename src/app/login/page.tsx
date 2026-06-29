@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { login } from './actions'
+import { login, signup } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,10 +11,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  async function handleSubmit(formData: FormData) {
+  async function handleLogin(formData: FormData) {
     setIsLoading(true)
     setError(null)
     const result = await login(formData)
+    if (result?.error) {
+      setError(result.error)
+      setIsLoading(false)
+    }
+  }
+
+  async function handleSignup(formData: FormData) {
+    setIsLoading(true)
+    setError(null)
+    const result = await signup(formData)
     if (result?.error) {
       setError(result.error)
       setIsLoading(false)
@@ -29,10 +39,10 @@ export default function LoginPage() {
             Maintenance Triage
           </CardTitle>
           <CardDescription>
-            Enter your email to sign in to your dashboard
+            Enter your email to sign in or create a new account
           </CardDescription>
         </CardHeader>
-        <form action={handleSubmit}>
+        <form>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -46,9 +56,20 @@ export default function LoginPage() {
               <div className="text-sm text-red-500 font-medium">{error}</div>
             )}
           </CardContent>
-          <CardFooter>
-            <Button className="w-full" type="submit" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign in'}
+          <CardFooter className="flex flex-col gap-3">
+            <Button className="w-full" type="submit" formAction={handleLogin} disabled={isLoading}>
+              {isLoading ? 'Loading...' : 'Sign in'}
+            </Button>
+            <div className="relative w-full">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+            <Button className="w-full" variant="outline" type="submit" formAction={handleSignup} disabled={isLoading}>
+              Create Account
             </Button>
           </CardFooter>
         </form>
