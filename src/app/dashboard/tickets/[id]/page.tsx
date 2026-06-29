@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { MapPin, Truck, Check, Sparkles } from 'lucide-react'
+import { MapPin, Check, Sparkles } from 'lucide-react'
+import { TicketActions } from '@/components/TicketActions'
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -39,14 +40,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                     Unit {ticket.properties?.unit_number} • {ticket.tenants?.name} • {ticket.tenants?.phone_number}
                   </p>
               </div>
-              <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-                      Contact Tenant
-                  </button>
-                  <button className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 shadow-sm flex items-center gap-2 transition-colors">
-                      <Truck className="w-4 h-4" /> Dispatch Vendor
-                  </button>
-              </div>
+              <TicketActions />
           </div>
       </div>
 

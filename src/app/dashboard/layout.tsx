@@ -2,7 +2,8 @@ import { logout } from '@/app/login/actions'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Wrench, Inbox, CheckCheck, PieChart, Settings, LogOut } from 'lucide-react'
+import { Wrench, LogOut } from 'lucide-react'
+import { SidebarNav } from '@/components/SidebarNav'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -41,20 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <p className="text-xs text-slate-400 mt-1 font-medium">{(profile?.organizations as any).name}</p>
             )}
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-            <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white font-medium shadow-sm">
-                <Inbox className="w-4 h-4" /> Active Tickets
-            </Link>
-            <Link href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition-colors">
-                <CheckCheck className="w-4 h-4" /> Resolved (AI)
-            </Link>
-            <Link href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition-colors">
-                <PieChart className="w-4 h-4" /> ROI Analytics
-            </Link>
-            <Link href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition-colors">
-                <Settings className="w-4 h-4" /> AI Settings
-            </Link>
-        </nav>
+        <SidebarNav />
         
         <div className="p-4 border-t border-slate-800">
             <div className="bg-slate-800/50 rounded-lg p-4 mb-4 border border-slate-700/50">
