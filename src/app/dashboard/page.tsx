@@ -1,0 +1,8 @@
+export default function DashboardPage() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <p>Welcome to the Maintenance Triage dashboard. Phase 3 UI will appear here.</p>
+    </div>
+  )
+}
