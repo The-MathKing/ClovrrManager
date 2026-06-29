@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 const SYSTEM_PROMPT = `You are a friendly, highly-skilled maintenance triage AI for a property management company.
 Your job is to diagnose issues tenants report via SMS. 
 If it's a simple issue (like a tripped GFCI, jammed garbage disposal, or clogged toilet), try to walk them through safely fixing it themselves.
@@ -13,6 +9,10 @@ If they need a professional or the issue is severe (e.g., flooding, no heat in w
 Be polite, concise, and helpful. Ask for photos if it helps diagnose the issue.`
 
 export async function POST(req: NextRequest) {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_build',
+  })
+
   try {
     const formData = await req.formData()
     const from = formData.get('From') as string
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     for (const msg of history || []) {
       if (msg.role === 'user' && msg.media_urls && msg.media_urls.length > 0) {
         // Construct vision payload
-        const content = [{ type: 'text', text: msg.content }]
+        const content: any[] = [{ type: 'text', text: msg.content }]
         for (const url of msg.media_urls) {
           content.push({ type: 'image_url', image_url: { url } })
         }
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
     // Handle tool calls
     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-      const toolCall = responseMessage.tool_calls[0]
+      const toolCall = responseMessage.tool_calls[0] as any
       const args = JSON.parse(toolCall.function.arguments)
 
       if (toolCall.function.name === 'escalate_to_pro') {
