@@ -81,6 +81,27 @@ export async function POST(req: NextRequest) {
       .eq('ticket_id', ticket.id)
       .order('created_at', { ascending: true })
 
+    // Fallback Routing: Max 10 messages before forced escalation
+    if (history && history.length >= 10 && ticket.status === 'open') {
+      await supabase.from('tickets').update({
+        status: 'needs_pro',
+        summary: 'Automatically escalated: Conversation exceeded 10 messages without AI resolution.'
+      }).eq('id', ticket.id)
+
+      const fallbackMsg = "This seems a bit complicated for me to fix remotely. I've escalated your ticket to the property manager, and a technician will be in touch shortly."
+      
+      await supabase.from('messages').insert({
+        ticket_id: ticket.id,
+        role: 'assistant',
+        content: fallbackMsg,
+      })
+
+      return new NextResponse(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${fallbackMsg}</Message></Response>`,
+        { headers: { 'Content-Type': 'text/xml' } }
+      )
+    }
+
     const contents: any[] = []
 
     for (const msg of history || []) {
