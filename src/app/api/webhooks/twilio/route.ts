@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import OpenAI from 'openai'
+import { GoogleGenAI, Type } from '@google/genai'
 
 const SYSTEM_PROMPT = `You are a friendly, highly-skilled maintenance triage AI for a property management company.
 Your job is to diagnose issues tenants report via SMS. 
@@ -9,8 +9,8 @@ If they need a professional or the issue is severe (e.g., flooding, no heat in w
 Be polite, concise, and helpful. Ask for photos if it helps diagnose the issue.`
 
 export async function POST(req: NextRequest) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_build',
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build',
   })
 
   try {
@@ -74,82 +74,95 @@ export async function POST(req: NextRequest) {
       media_urls: mediaUrls.length > 0 ? mediaUrls : null,
     })
 
-    // 4. Fetch conversation history for OpenAI
+    // 4. Fetch conversation history for Gemini
     const { data: history } = await supabase
       .from('messages')
       .select('*')
       .eq('ticket_id', ticket.id)
       .order('created_at', { ascending: true })
 
-    const messagesForOpenAI: any[] = [
-      { role: 'system', content: SYSTEM_PROMPT }
-    ]
+    const contents: any[] = []
 
     for (const msg of history || []) {
-      if (msg.role === 'user' && msg.media_urls && msg.media_urls.length > 0) {
-        // Construct vision payload
-        const content: any[] = [{ type: 'text', text: msg.content }]
-        for (const url of msg.media_urls) {
-          content.push({ type: 'image_url', image_url: { url } })
-        }
-        messagesForOpenAI.push({ role: msg.role, content })
-      } else if (msg.role !== 'system') {
-        messagesForOpenAI.push({ role: msg.role, content: msg.content })
+      if (msg.role === 'system') continue
+      
+      const role = msg.role === 'assistant' ? 'model' : 'user'
+      const parts: any[] = []
+      
+      if (msg.content) {
+        parts.push({ text: msg.content })
       }
+      
+      if (msg.role === 'user' && msg.media_urls && msg.media_urls.length > 0) {
+        for (const url of msg.media_urls) {
+          try {
+            const res = await fetch(url)
+            const arrayBuffer = await res.arrayBuffer()
+            const buffer = Buffer.from(arrayBuffer)
+            parts.push({
+              inlineData: {
+                data: buffer.toString('base64'),
+                mimeType: res.headers.get('content-type') || 'image/jpeg'
+              }
+            })
+          } catch (e) {
+            console.error('Failed to fetch media from Twilio:', e)
+          }
+        }
+      }
+      contents.push({ role, parts })
     }
 
-    // 5. Call OpenAI
-    const aiResponse = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: messagesForOpenAI,
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'escalate_to_pro',
-            description: 'Escalate the ticket to a human property manager or maintenance technician if the AI cannot resolve it.',
-            parameters: {
-              type: 'object',
-              properties: {
-                summary: { type: 'string', description: 'A short summary of the issue for the technician.' },
-                reason: { type: 'string', description: 'Why it needs a pro.' }
-              },
-              required: ['summary', 'reason']
+    // 5. Call Gemini
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        tools: [{
+          functionDeclarations: [
+            {
+              name: 'escalate_to_pro',
+              description: 'Escalate the ticket to a human property manager or maintenance technician if the AI cannot resolve it.',
+              parameters: {
+                type: Type.OBJECT,
+                properties: {
+                  summary: { type: Type.STRING, description: 'A short summary of the issue for the technician.' },
+                  reason: { type: Type.STRING, description: 'Why it needs a pro.' }
+                },
+                required: ['summary', 'reason']
+              }
+            },
+            {
+              name: 'mark_resolved',
+              description: 'Mark the ticket as resolved if the tenant successfully fixed it with your help.',
+              parameters: {
+                type: Type.OBJECT,
+                properties: {
+                  summary: { type: Type.STRING, description: 'A short summary of what was fixed.' },
+                },
+                required: ['summary']
+              }
             }
-          }
-        },
-        {
-          type: 'function',
-          function: {
-            name: 'mark_resolved',
-            description: 'Mark the ticket as resolved if the tenant successfully fixed it with your help.',
-            parameters: {
-              type: 'object',
-              properties: {
-                summary: { type: 'string', description: 'A short summary of what was fixed.' },
-              },
-              required: ['summary']
-            }
-          }
-        }
-      ]
+          ]
+        }]
+      }
     })
 
-    const responseMessage = aiResponse.choices[0].message
-    let replyText = responseMessage.content || ""
+    let replyText = response.text || ""
 
     // Handle tool calls
-    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-      const toolCall = responseMessage.tool_calls[0] as any
-      const args = JSON.parse(toolCall.function.arguments)
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      const toolCall = response.functionCalls[0]
+      const args = toolCall.args as any
 
-      if (toolCall.function.name === 'escalate_to_pro') {
+      if (toolCall.name === 'escalate_to_pro') {
         await supabase.from('tickets').update({
           status: 'needs_pro',
           summary: args.summary
         }).eq('id', ticket.id)
         replyText = "I've escalated this issue to your property manager. A maintenance technician will be in touch shortly."
-      } else if (toolCall.function.name === 'mark_resolved') {
+      } else if (toolCall.name === 'mark_resolved') {
         await supabase.from('tickets').update({
           status: 'resolved_by_ai',
           summary: args.summary,
