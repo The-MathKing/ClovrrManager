@@ -1,33 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { MapPin, Truck, Check, Sparkles } from 'lucide-react'
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
 
-  // Ensure params is fully resolved before accessing properties in App Router Next 15+
   const resolvedParams = await params
   const ticketId = resolvedParams.id
 
   const { data: ticketData } = await supabase
     .from('tickets')
-    .select(`
-      *,
-      tenants(*),
-      properties(*)
-    `)
+    .select(`*, tenants(*), properties(*)`)
     .eq('id', ticketId)
     .single()
 
   const ticket = ticketData as any
-
-  if (!ticket) {
-    notFound()
-  }
+  if (!ticket) notFound()
 
   const { data: messagesData } = await supabase
     .from('messages')
@@ -38,98 +26,108 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const messages = messagesData as any[]
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 transition-colors bg-white p-2 rounded-full border shadow-sm">
-          <ChevronLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ticket Details</h1>
-          <p className="text-slate-500 text-sm mt-1">Property: {ticket.properties?.address}</p>
-        </div>
+    <div className="flex-1 flex flex-col h-full bg-slate-50 relative">
+      {/* Header */}
+      <div className="p-6 border-b border-slate-200 bg-white shrink-0">
+          <div className="flex justify-between items-start">
+              <div>
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {ticket.status === 'resolved_by_ai' ? 'Resolved by AI' : ticket.status === 'needs_pro' ? 'Escalated to Pro' : 'Active Issue'}
+                  </h2>
+                  <p className="text-slate-500 mt-1 flex items-center text-sm">
+                    <MapPin className="w-3.5 h-3.5 mr-1" /> 
+                    Unit {ticket.properties?.unit_number} • {ticket.tenants?.name} • {ticket.tenants?.phone_number}
+                  </p>
+              </div>
+              <div className="flex gap-2">
+                  <button className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                      Contact Tenant
+                  </button>
+                  <button className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 shadow-sm flex items-center gap-2 transition-colors">
+                      <Truck className="w-4 h-4" /> Dispatch Vendor
+                  </button>
+              </div>
+          </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center flex-wrap gap-2">
-                <Badge variant={ticket.status === 'needs_pro' ? 'destructive' : ticket.status === 'resolved_by_ai' ? 'default' : 'secondary'} className="px-3 py-1 text-sm">
-                  {ticket.status === 'resolved_by_ai' ? 'Resolved (AI)' : ticket.status === 'needs_pro' ? 'Needs Pro' : 'Open'}
-                </Badge>
-                {ticket.truck_roll_prevented && (
-                  <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 px-3 py-1 text-sm">
-                    Truck Roll Prevented
-                  </Badge>
-                )}
-              </div>
-              <div className="bg-slate-50 p-4 rounded-lg border">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">AI Summary</div>
-                <div className="text-sm leading-relaxed text-slate-700">{ticket.summary || 'No summary generated yet.'}</div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Content Area (Scrollable) */}
+      <div className="p-6 overflow-y-auto flex-1">
+          {/* AI Summary Card */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-8">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-500" /> AI Diagnostic Summary
+              </h3>
+              <ul className="space-y-3 text-sm">
+                  <li className="flex items-start gap-3">
+                      <Check className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                      <div><span className="font-semibold text-slate-700">Status:</span> Ticket is {ticket.status.replace('_', ' ')}.</div>
+                  </li>
+                  {ticket.summary && (
+                    <li className="flex items-start gap-3">
+                        <Check className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                        <div><span className="font-semibold text-slate-700">AI Summary:</span> {ticket.summary}</div>
+                    </li>
+                  )}
+                  {ticket.truck_roll_prevented && (
+                    <li className="flex items-start gap-3">
+                        <Check className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                        <div><span className="font-semibold text-slate-700">Outcome:</span> Truck roll successfully prevented! Issue resolved remotely.</div>
+                    </li>
+                  )}
+              </ul>
+              {ticket.status === 'needs_pro' && (
+                <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
+                    <p className="text-sm text-red-800"><strong>Recommendation:</strong> Dispatch Handyman. AI could not resolve remotely.</p>
+                </div>
+              )}
+              {ticket.status === 'open' && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-sm text-blue-800"><strong>Status:</strong> AI is currently interacting with the tenant to diagnose.</p>
+                </div>
+              )}
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Tenant Info</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm space-y-3">
-              <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500 font-medium">Name</span> 
-                <span className="font-medium text-slate-900">{ticket.tenants?.name}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500 font-medium">Phone</span> 
-                <span className="font-medium text-slate-900">{ticket.tenants?.phone_number}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Unit</span> 
-                <span className="font-medium text-slate-900">{ticket.properties?.unit_number || 'N/A'}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-2">
-          <Card className="h-[650px] flex flex-col shadow-sm">
-            <CardHeader className="border-b bg-slate-50/50 pb-4">
-              <CardTitle className="text-lg">SMS Transcript</CardTitle>
-            </CardHeader>
-            <ScrollArea className="flex-1 p-4 bg-slate-50/30">
-              <div className="space-y-6 pb-4">
-                {messages?.map((msg) => {
-                  if (msg.role === 'system') return null; // Don't show system prompts
-                  const isUser = msg.role === 'user';
+          {/* SMS Transcript */}
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 px-1">SMS Transcript</h3>
+          <div className="space-y-4 px-1 pb-10">
+              {messages?.map((msg) => {
+                if (msg.role === 'system') return null;
+                const isUser = msg.role === 'user';
+                const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                
+                if (isUser) {
                   return (
-                    <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${isUser ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white border text-slate-900 rounded-bl-sm'}`}>
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</div>
-                        {msg.media_urls && msg.media_urls.length > 0 && (
-                          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                            {msg.media_urls.map((url: string, i: number) => (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img key={i} src={url} alt="MMS Attachment" className="h-48 rounded-lg object-cover border border-black/10" />
-                            ))}
-                          </div>
-                        )}
-                        <div className={`text-[11px] mt-2 font-medium ${isUser ? 'text-blue-200' : 'text-slate-400'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <div key={msg.id} className="flex flex-col items-start max-w-lg">
+                        <div className="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-sm">
+                            {msg.media_urls && msg.media_urls.length > 0 && (
+                              <div className="mb-2 flex gap-2 overflow-x-auto">
+                                {msg.media_urls.map((url: string, i: number) => (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img key={i} src={url} alt="Tenant Photo" className="rounded-xl w-64 h-auto object-cover border border-slate-200" />
+                                ))}
+                              </div>
+                            )}
+                            {msg.content && <div className="whitespace-pre-wrap">{msg.content}</div>}
                         </div>
-                      </div>
+                        <span className="text-xs text-slate-400 mt-1 ml-1">{ticket.tenants?.name} (Tenant) • {timeStr}</span>
                     </div>
-                  );
-                })}
-                {!messages?.length && (
-                  <div className="text-center text-slate-500 mt-10">No messages found in this transcript.</div>
-                )}
-              </div>
-            </ScrollArea>
-          </Card>
-        </div>
+                  )
+                } else {
+                  return (
+                    <div key={msg.id} className="flex flex-col items-end self-end max-w-lg ml-auto">
+                        <div className="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm text-sm whitespace-pre-wrap">
+                            {msg.content}
+                        </div>
+                        <span className="text-xs text-slate-400 mt-1 mr-1">Clovrr AI • {timeStr}</span>
+                    </div>
+                  )
+                }
+              })}
+              
+              {!messages?.length && (
+                <div className="text-center text-slate-500 mt-10">No messages found.</div>
+              )}
+          </div>
       </div>
     </div>
   )
