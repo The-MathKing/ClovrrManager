@@ -61,7 +61,7 @@ export async function seedDemoData() {
   ]
 
   for (const msg of messages) {
-    await supabase.from('messages').insert(msg)
+    await supabase.from('messages').insert(msg as any)
     await new Promise(r => setTimeout(r, 100)) // delay for timestamp ordering
   }
 
