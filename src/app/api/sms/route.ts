@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
-import { Database } from '../../../../../types/supabase';
+import { Database } from '../../../../types/supabase';
 
 const SYSTEM_PROMPT = `You are an AI maintenance assistant for a property management company. Ask for photos of the issue. Walk the tenant through basic fixes (e.g., reset GFCI, unjam disposal). If it requires a professional, state that a work order has been submitted. Keep replies under 2 sentences.`;
 
