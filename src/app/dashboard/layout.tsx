@@ -14,11 +14,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   // Get user details
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from('profiles')
-    .select('role, organizations(name)')
+    .select('role, org_id, organizations(name)')
     .eq('id', user.id)
     .single()
+
+  if (!profile) {
+    // Auto-onboard the user for the MVP
+    const { data: org } = await supabase
+      .from('organizations')
+      .insert({ name: 'Acme Properties' })
+      .select()
+      .single()
+      
+    if (org) {
+      await supabase.from('profiles').insert({ id: user.id, org_id: org.id })
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .select('role, org_id, organizations(name)')
+        .eq('id', user.id)
+        .single()
+      profile = newProfile
+    }
+  }
 
   // Fetch metrics for sidebar
   const { data: ticketsData } = await supabase
