@@ -8,9 +8,9 @@ export default async function TicketsLayout({ children }: { children: React.Reac
   const { data: ticketsData } = await supabase
     .from('tickets')
     .select(`
-      id, status, summary, created_at, truck_roll_prevented,
+      id, status, title, created_at, truck_roll_prevented,
       tenants(name, phone_number),
-      properties(address, unit_number)
+      properties(address)
     `)
     .order('created_at', { ascending: false })
 
@@ -32,11 +32,11 @@ export default async function TicketsLayout({ children }: { children: React.Reac
           let Icon = Clock
           let statusText = "Active"
           
-          if (ticket.status === 'needs_pro') {
+          if (ticket.status === 'dispatch_needed') {
             badgeColor = "bg-red-100 text-red-800"
             Icon = AlertCircle
             statusText = "Needs Vendor"
-          } else if (ticket.status === 'resolved_by_ai') {
+          } else if (ticket.status === 'resolved') {
             badgeColor = "bg-green-100 text-green-800"
             Icon = CheckCircle
             statusText = "Resolved by AI"
@@ -46,15 +46,15 @@ export default async function TicketsLayout({ children }: { children: React.Reac
             <Link key={ticket.id} href={`/dashboard/tickets/${ticket.id}`} className="block p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer border-l-4 border-l-transparent focus:bg-slate-50 transition-colors">
               <div className="flex justify-between items-start mb-2">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${badgeColor}`}>
-                      {ticket.status === 'needs_pro' ? 'Critical' : ticket.status === 'resolved_by_ai' ? 'Resolved' : 'Active'}
+                      {ticket.status === 'dispatch_needed' ? 'Critical' : ticket.status === 'resolved' ? 'Resolved' : 'Active'}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">{getTimeAgo(ticket.created_at)}</span>
               </div>
               <h3 className="font-semibold text-slate-900 text-sm mb-1">{ticket.properties?.address}</h3>
-              <p className="text-xs text-slate-600 truncate">Unit {ticket.properties?.unit_number} - {ticket.tenants?.name}</p>
-              <div className={`mt-3 flex items-center gap-1.5 text-xs font-medium ${ticket.status === 'needs_pro' ? 'text-red-700' : ticket.status === 'resolved_by_ai' ? 'text-green-700' : 'text-blue-700'}`}>
+              <p className="text-xs text-slate-600 truncate">{ticket.tenants?.name} • {ticket.tenants?.phone}</p>
+              <div className={`mt-3 flex items-center gap-1.5 text-xs font-medium ${ticket.status === 'dispatch_needed' ? 'text-red-700' : ticket.status === 'resolved' ? 'text-green-700' : 'text-blue-700'}`}>
                   <Icon className="w-3.5 h-3.5" /> 
-                  <span className="truncate">{ticket.summary || 'Interacting with AI...'}</span>
+                  <span className="truncate">{ticket.title || 'Interacting with AI...'}</span>
               </div>
             </Link>
           )

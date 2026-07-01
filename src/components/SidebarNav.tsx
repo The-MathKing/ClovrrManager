@@ -2,14 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Inbox, CheckCheck, PieChart, Settings } from 'lucide-react'
+import { LayoutDashboard, Inbox, CheckCheck, PieChart, Settings, Building2 } from 'lucide-react'
 
 export function SidebarNav() {
   const pathname = usePathname()
 
   const links = [
+    { href: '/dashboard', label: 'KPI Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/tickets', label: 'Active Tickets', icon: Inbox },
     { href: '/dashboard/resolved', label: 'Resolved (AI)', icon: CheckCheck },
+    { href: '/dashboard/properties', label: 'Properties & Tenants', icon: Building2 },
     { href: '/dashboard/analytics', label: 'ROI Analytics', icon: PieChart },
     { href: '/dashboard/settings', label: 'AI Settings', icon: Settings },
   ]
@@ -18,7 +20,7 @@ export function SidebarNav() {
     <nav className="flex-1 p-4 space-y-2">
       {links.map((link) => {
         const Icon = link.icon
-        const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`) || (pathname === '/dashboard' && link.href === '/dashboard/tickets')
+        const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(`${link.href}/`))
         
         return (
           <Link 

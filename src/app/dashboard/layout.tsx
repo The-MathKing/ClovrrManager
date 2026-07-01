@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Get user details
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role, organizations(name)')
     .eq('id', user.id)
     .single()
@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   
   const tickets = ticketsData as any[]
   const preventedCount = tickets?.filter(t => t.truck_roll_prevented).length || 0
-  const estSavings = preventedCount * 150 // Assuming $150 per truck roll
+  const estSavings = preventedCount * 200 // Assuming $200 per truck roll
 
   return (
     <div className="bg-slate-50 h-screen flex overflow-hidden font-sans text-slate-800">

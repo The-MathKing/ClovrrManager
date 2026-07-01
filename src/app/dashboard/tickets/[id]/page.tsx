@@ -33,14 +33,18 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           <div className="flex justify-between items-start">
               <div>
                   <h2 className="text-2xl font-bold text-slate-900">
-                    {ticket.status === 'resolved_by_ai' ? 'Resolved by AI' : ticket.status === 'needs_pro' ? 'Escalated to Pro' : 'Active Issue'}
+                    {ticket.status === 'resolved' ? 'Resolved by AI' : ticket.status === 'dispatch_needed' ? 'Escalated to Pro' : 'Active Issue'}
                   </h2>
                   <p className="text-slate-500 mt-1 flex items-center text-sm">
                     <MapPin className="w-3.5 h-3.5 mr-1" /> 
-                    Unit {ticket.properties?.unit_number} • {ticket.tenants?.name} • {ticket.tenants?.phone_number}
+                    {ticket.properties?.address} • {ticket.tenants?.name} • {ticket.tenants?.phone}
                   </p>
               </div>
-              <TicketActions />
+              <TicketActions 
+                ticketId={ticket.id} 
+                initialStatus={ticket.status} 
+                initialPrevented={ticket.truck_roll_prevented} 
+              />
           </div>
       </div>
 
@@ -56,10 +60,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                       <Check className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
                       <div><span className="font-semibold text-slate-700">Status:</span> Ticket is {ticket.status.replace('_', ' ')}.</div>
                   </li>
-                  {ticket.summary && (
+                  {ticket.title && (
                     <li className="flex items-start gap-3">
                         <Check className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                        <div><span className="font-semibold text-slate-700">AI Summary:</span> {ticket.summary}</div>
+                        <div><span className="font-semibold text-slate-700">AI Summary:</span> {ticket.title}</div>
                     </li>
                   )}
                   {ticket.truck_roll_prevented && (
@@ -69,7 +73,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                     </li>
                   )}
               </ul>
-              {ticket.status === 'needs_pro' && (
+              {ticket.status === 'dispatch_needed' && (
                 <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
                     <p className="text-sm text-red-800"><strong>Recommendation:</strong> Dispatch Handyman. AI could not resolve remotely.</p>
                 </div>
@@ -85,20 +89,17 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 px-1">SMS Transcript</h3>
           <div className="space-y-4 px-1 pb-10">
               {messages?.map((msg) => {
-                if (msg.role === 'system') return null;
-                const isUser = msg.role === 'user';
+                const isUser = msg.sender === 'tenant';
                 const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 
                 if (isUser) {
                   return (
                     <div key={msg.id} className="flex flex-col items-start max-w-lg">
                         <div className="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-sm">
-                            {msg.media_urls && msg.media_urls.length > 0 && (
+                            {msg.image_url && (
                               <div className="mb-2 flex gap-2 overflow-x-auto">
-                                {msg.media_urls.map((url: string, i: number) => (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img key={i} src={url} alt="Tenant Photo" className="rounded-xl w-64 h-auto object-cover border border-slate-200" />
-                                ))}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={msg.image_url} alt="Tenant Photo" className="rounded-xl w-64 h-auto object-cover border border-slate-200" />
                               </div>
                             )}
                             {msg.content && <div className="whitespace-pre-wrap">{msg.content}</div>}
