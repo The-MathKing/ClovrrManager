@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import { Database } from '../../../../types/supabase';
 
 const SYSTEM_PROMPT = `You are an AI maintenance assistant for a property management company. Ask for photos of the issue. Walk the tenant through basic fixes (e.g., reset GFCI, unjam disposal). If it requires a professional, state that a work order has been submitted. Keep replies under 2 sentences.`;
+
+// Helper to fetch Twilio image and convert to Base64 for Gemini
+async function fetchImageAsBase64(url: string) {
+  const response = await fetch(url);
+  const buffer = await response.arrayBuffer();
+  const mimeType = response.headers.get('content-type') || 'image/jpeg';
+  return {
+    inlineData: {
+      data: Buffer.from(buffer).toString('base64'),
+      mimeType
+    }
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -17,9 +30,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing From or Body' }, { status: 400 });
     }
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    // Initialize Gemini client
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
     });
 
     // Initialize Supabase Admin client to bypass RLS for webhooks
@@ -94,35 +107,38 @@ export async function POST(req: Request) {
     // Reorder to ascending for OpenAI context
     const orderedMessages = (messagesContext || []).reverse();
 
-    // 5. OpenAI Integration
-    const messagesPayload: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT }
-    ];
+    // 5. Gemini Integration
+    const geminiContents: any[] = [];
 
     for (const msg of orderedMessages) {
       if (msg.sender === 'ai') {
-        messagesPayload.push({ role: 'assistant', content: msg.content });
+        geminiContents.push({ role: 'model', parts: [{ text: msg.content }] });
       } else {
-        const userContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-          { type: 'text', text: msg.content }
-        ];
+        const parts: any[] = [{ text: msg.content }];
+        
         if (msg.image_url) {
-          userContent.push({
-            type: 'image_url',
-            image_url: { url: msg.image_url }
-          });
+          try {
+            const imagePart = await fetchImageAsBase64(msg.image_url);
+            parts.push(imagePart);
+          } catch (e) {
+            console.error('Failed to fetch image for Gemini:', e);
+          }
         }
-        messagesPayload.push({ role: 'user', content: userContent });
+        
+        geminiContents.push({ role: 'user', parts });
       }
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: messagesPayload,
-      max_tokens: 150,
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: geminiContents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        maxOutputTokens: 150,
+      }
     });
 
-    const aiResponseText = completion.choices[0]?.message?.content || 'I am currently unavailable to help. Please try again later.';
+    const aiResponseText = response.text || 'I am currently unavailable to help. Please try again later.';
 
     // 6. Save AI Response
     await supabaseAdmin
